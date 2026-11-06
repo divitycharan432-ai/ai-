@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Camera Test</title>
+<style>
+body{font-family:system-ui,sans-serif;background:#F5F5F2;color:#111;margin:0;padding:24px;max-width:720px;margin:auto}
+h1{font-weight:300}video{width:100%;background:#111;border-radius:16px;transform:scaleX(-1)}
+button{background:#111;color:#fff;border:0;border-radius:99px;padding:12px 24px;font-size:15px;cursor:pointer;margin:12px 8px 12px 0}
+#msg{padding:12px 16px;border-radius:12px;background:#fff;margin:12px 0}
+.ok{border-left:4px solid #3c3}.bad{border-left:4px solid #d33}
+pre{background:#fff;padding:12px;border-radius:12px;font-size:13px;white-space:pre-wrap}
+</style></head><body>
+<h1>Camera Test</h1>
+<div id="msg">Click "Start camera".</div>
+<video id="v" autoplay playsinline muted></video>
+<div><button id="go">Start camera</button><button id="stop">Stop</button></div>
+<h3>Diagnostics</h3><pre id="diag"></pre>
+<script>
+const $=id=>document.getElementById(id), v=$('v');
+let stream=null;
+const say=(t,ok)=>{$('msg').textContent=t;$('msg').className=ok===undefined?'':ok?'ok':'bad'};
+$('diag').textContent=
+ 'Address: '+location.href+'\n'+
+ 'Secure context (https/localhost): '+window.isSecureContext+'\n'+
+ 'Camera API available: '+!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)+'\n'+
+ 'Inside iframe/preview: '+(window.self!==window.top)+'\n'+
+ 'Browser: '+navigator.userAgent;
+if(navigator.permissions)navigator.permissions.query({name:'camera'}).then(p=>{
+ $('diag').textContent+='\nPermission state: '+p.state;
+ p.onchange=()=>location.reload();
+}).catch(()=>{});
+$('go').onclick=async()=>{
+ if(!window.isSecureContext)return say('Not a secure address. Open via http://localhost:8000 (not file:// or an IP address).',false);
+ if(!navigator.mediaDevices)return say('Camera API not available in this browser/preview.',false);
+ try{
+  say('Requesting camera… (look for the browser prompt)');
+  stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});
+  v.srcObject=stream;
+  say('Camera working: '+stream.getVideoTracks()[0].label,true);
+ }catch(e){
+  const m={
+   NotAllowedError:'Permission denied. Click the lock icon in the address bar, set Camera to Allow, then reload. Also check your OS camera privacy settings.',
+   NotFoundError:'No camera found on this device.',
+   NotReadableError:'Camera is in use by another app (Zoom, Teams, another tab). Close it and retry.',
+   OverconstrainedError:'Camera does not support the requested settings.',
+   SecurityError:'Blocked by security policy (preview pane or managed device).'
+  };
+  say((m[e.name]||'Error: '+e.message)+'  ['+e.name+']',false);
+ }
+};
+$('stop').onclick=()=>{stream&&stream.getTracks().forEach(t=>t.stop());stream=null;v.srcObject=null;say('Camera stopped.')};
+</script></body></html>
